@@ -176,6 +176,11 @@ class MorphTo extends BelongsTo
         $key = $instance->getTable().'.'.$instance->getKeyName();
 
         $query = clone $this->query;
+
+        // Since eager loads are already loaded separately, we should
+        // not attempt to load them again here, as eager loads are
+        // dependent on model methods, and we only have builder.
+        $query->setEagerLoads([]);
         $query->setModel($instance);
 
         return $query->whereIn($key, $this->gatherKeysByType($type)->all())->get();

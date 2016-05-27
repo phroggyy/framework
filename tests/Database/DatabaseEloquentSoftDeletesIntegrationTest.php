@@ -577,6 +577,23 @@ class DatabaseEloquentSoftDeletesIntegrationTest extends PHPUnit_Framework_TestC
         $this->assertEquals(null, $comment->owner);
     }
 
+    public function testMorphToWillLoadPresetRelationships()
+    {
+        $this->createUsers();
+
+        $abigail = SoftDeletesTestUser::where('email', 'abigailotwell@gmail.com')->first();
+        $post1 = $abigail->posts()->create(['title' => 'First Title']);
+        $post1->comments()->create([
+            'body' => 'Comment Body',
+            'owner_type' => SoftDeletesTestUser::class,
+            'owner_id' => $abigail->id,
+        ]);
+
+        $comment = SoftDeletesTestCommentWithOwner::first();
+
+        $this->assertEquals($abigail, $comment->owner);
+    }
+
     /**
      * Helpers...
      */
@@ -677,6 +694,21 @@ class SoftDeletesTestComment extends Eloquent
     protected $dates = ['deleted_at'];
     protected $table = 'comments';
     protected $guarded = [];
+
+    public function owner()
+    {
+        return $this->morphTo();
+    }
+}
+
+class SoftDeletesTestCommentWithOwner extends Eloquent
+{
+    use SoftDeletes;
+
+    protected $dates = ['deleted_at'];
+    protected $table = 'comments';
+    protected $guarded = [];
+    protected $with = ['owner'];
 
     public function owner()
     {
