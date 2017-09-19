@@ -30,11 +30,17 @@ trait DelegatesToResource
      * Retrieve the model for a bound value.
      *
      * @param  mixed  $value
-     * @return void
+     * @return \Illuminate\Database\Eloquent\Model|null
      * @throws \Exception
      */
     public function resolveRouteBinding($value)
     {
+        if ($this->resource) {
+            $this->resource = $this->resource->resolveRouteBinding($value);
+
+            return $this->resource ? $this : $this->resource;
+        }
+
         throw new Exception('Resources may not be implicitly resolved from route bindings.');
     }
 

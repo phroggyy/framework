@@ -2,6 +2,8 @@
 
 namespace Illuminate\Foundation\Providers;
 
+use App\Http\Resources\User;
+use Illuminate\Http\Resources\Json\Resource;
 use Illuminate\Routing\Redirector;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,6 +12,10 @@ use Illuminate\Contracts\Validation\ValidatesWhenResolved;
 
 class FormRequestServiceProvider extends ServiceProvider
 {
+    protected $resourceBindings = [
+        User::class => \App\User::class
+    ];
+
     /**
      * Register the service provider.
      *
@@ -27,6 +33,10 @@ class FormRequestServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->app->afterResolving(Resource::class, function ($resolved) {
+            $resolved->resource = $this->retrieveModelForResource(get_class($resolved));
+        });
+
         $this->app->afterResolving(ValidatesWhenResolved::class, function ($resolved) {
             $resolved->validate();
         });
@@ -36,6 +46,13 @@ class FormRequestServiceProvider extends ServiceProvider
 
             $request->setContainer($app)->setRedirector($app->make(Redirector::class));
         });
+    }
+
+    private function retrieveModelForResource($resourceClass)
+    {
+        $class = $this->resourceBindings[$resourceClass] ?? null;
+
+        return $class ? new $class : null;
     }
 
     /**

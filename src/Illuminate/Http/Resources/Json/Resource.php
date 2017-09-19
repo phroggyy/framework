@@ -3,6 +3,8 @@
 namespace Illuminate\Http\Resources\Json;
 
 use ArrayAccess;
+use Illuminate\Contracts\Validation\ValidatesWhenResolved;
+use Illuminate\Foundation\Http\ResourceFormRequest;
 use JsonSerializable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -14,7 +16,7 @@ use Illuminate\Contracts\Routing\UrlRoutable;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Resources\DelegatesToResource;
 
-class Resource implements ArrayAccess, JsonSerializable, Responsable, UrlRoutable
+class Resource implements ArrayAccess, JsonSerializable, Responsable, UrlRoutable, ValidatesWhenResolved
 {
     use DelegatesToResource;
 
@@ -54,9 +56,49 @@ class Resource implements ArrayAccess, JsonSerializable, Responsable, UrlRoutabl
      * @param  mixed  $resource
      * @return void
      */
-    public function __construct($resource)
+    public function __construct($resource = null)
     {
         $this->resource = $resource;
+    }
+
+    public function validate()
+    {
+        if ($this->resource && $this->resource->exists) {
+            return true;
+        }
+
+        app()->bind(ResourceFormRequest::class, function () {
+            return new class($this->rules()) extends ResourceFormRequest {
+                protected $rules;
+                public function __construct($rules)
+                {
+                    $this->rules = $rules;
+                }
+
+                public function authorize()
+                {
+                    return true;
+                }
+                public function rules()
+
+                {
+                    return $this->rules;
+                }
+            };
+        });
+
+        /** @var ResourceFormRequest $request */
+        $request = app(ResourceFormRequest::class);
+
+        $request->validate();
+        $this->resource = $this->resource->newFromBuilder($request->validated());
+    }
+
+    public function rules()
+    {
+        return [
+            'name' => 'required|string',
+        ];
     }
 
     /**
@@ -150,8 +192,6 @@ class Resource implements ArrayAccess, JsonSerializable, Responsable, UrlRoutabl
                 ($value instanceof self &&
                 $value->resource instanceof MissingValue)) {
                 unset($data[$key]);
-
-                $index--;
             }
 
             if ($value instanceof self && is_null($value->resource)) {
